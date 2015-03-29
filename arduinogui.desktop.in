@@ -1,0 +1,8 @@
+[Desktop Entry]
+_Name=Arduinogui
+_Comment=Arduinogui application
+Categories=GNOME;Utility;
+Exec=arduinogui
+Icon=arduinogui
+Terminal=false
+Type=Application
