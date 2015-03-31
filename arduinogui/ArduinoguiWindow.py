@@ -23,20 +23,16 @@ class ArduinoguiWindow(Window):
     except serial.serialutil.SerialException:
       print "Unable to create serial connection"
     
-    def gatherData(self):
+    def gatherData(self, spinbox_list):
       message = ""
-      message += "Roll P: %d" % int(self.roll_p_adj.get_value())
-      message += " Roll I: %d" % int(self.roll_i_adj.get_value())
-      message += " Roll D: %d" % int(self.roll_d_adj.get_value())
-      message += "\n"
-      message += "Pitch P: %d" % int(self.pitch_p_adj.get_value())
-      message += " Pitch I: %d" % int(self.pitch_i_adj.get_value())
-      message += " Pitch D: %d" % int(self.pitch_d_adj.get_value())
-      message += "\n"
-      message += "Yaw P: %d" % int(self.yaw_p_adj.get_value())
-      message += " Yaw I: %d" % int(self.yaw_i_adj.get_value())
-      message += " Yaw D: %d" % int(self.yaw_d_adj.get_value())
+      for spinbox in spinbox_list:
+        message += str(spinbox.get_adjustment().get_value()) + " "
       return message
+
+    def newAdjustment(self, spinbox, adj):
+       adj.configure(0.00, 0, 3, 0.01, 0.01, 0.01)
+       spinbox.set_adjustment(adj)
+      
 
     def finish_initializing(self, builder): # pylint: disable=E1002
         """Set up the main window"""
@@ -45,29 +41,75 @@ class ArduinoguiWindow(Window):
         self.AboutDialog = AboutArduinoguiDialog
         self.PreferencesDialog = PreferencesArduinoguiDialog
 
+        self.spinbox_list = []
+
         # Code for other initialization actions should be added here.
         self.sendbutton = self.builder.get_object("sendbutton")
         self.textbuffer = self.builder.get_object("textbuffer")
         self.arduino_entry = self.builder.get_object("arduino_entry")
-        self.roll_p_adj = self.builder.get_object("roll_p_adj")
-        self.roll_i_adj = self.builder.get_object("roll_i_adj")
-        self.roll_d_adj = self.builder.get_object("roll_d_adj")
-        self.pitch_p_adj = self.builder.get_object("pitch_p_adj")
-        self.pitch_i_adj = self.builder.get_object("pitch_i_adj")
-        self.pitch_d_adj = self.builder.get_object("pitch_d_adj")
-        self.yaw_p_adj = self.builder.get_object("yaw_p_adj")
-        self.yaw_i_adj = self.builder.get_object("yaw_i_adj")
-        self.yaw_d_adj = self.builder.get_object("yaw_d_adj")
+        self.serial_label = self.builder.get_object("serial_label");
+
+
+
+
+        self.roll_angle_p = self.builder.get_object("roll_angle_p")
+        self.spinbox_list.append(self.roll_angle_p)
+        self.roll_angle_i = self.builder.get_object("roll_angle_i")
+        self.spinbox_list.append(self.roll_angle_i)
+        self.roll_angle_d = self.builder.get_object("roll_angle_d")
+        self.spinbox_list.append(self.roll_angle_d)
+
+        self.roll_rate_p = self.builder.get_object("roll_rate_p")
+        self.spinbox_list.append(self.roll_rate_p)
+        self.roll_rate_i = self.builder.get_object("roll_rate_i")
+        self.spinbox_list.append(self.roll_rate_i)
+        self.roll_rate_d = self.builder.get_object("roll_rate_d")
+        self.spinbox_list.append(self.roll_rate_d)
+
+        self.pitch_angle_p = self.builder.get_object("pitch_angle_p")
+        self.spinbox_list.append(self.pitch_angle_p)
+        self.pitch_angle_i = self.builder.get_object("pitch_angle_i")
+        self.spinbox_list.append(self.pitch_angle_i)
+        self.pitch_angle_d = self.builder.get_object("pitch_angle_d")
+        self.spinbox_list.append(self.pitch_angle_d)
+
+        self.pitch_rate_p = self.builder.get_object("pitch_rate_p")
+        self.spinbox_list.append(self.pitch_rate_p)
+        self.pitch_rate_i = self.builder.get_object("pitch_rate_i")
+        self.spinbox_list.append(self.pitch_rate_i)
+        self.pitch_rate_d = self.builder.get_object("pitch_rate_d")
+        self.spinbox_list.append(self.pitch_rate_d)
+
+        self.yaw_angle_p = self.builder.get_object("yaw_angle_p")
+        self.spinbox_list.append(self.yaw_angle_p)
+        self.yaw_angle_i = self.builder.get_object("yaw_angle_i")
+        self.spinbox_list.append(self.yaw_angle_i)
+        self.yaw_angle_d = self.builder.get_object("yaw_angle_d")
+        self.spinbox_list.append(self.yaw_angle_d)
+
+        self.yaw_rate_p = self.builder.get_object("yaw_rate_p")
+        self.spinbox_list.append(self.yaw_rate_p)
+        self.yaw_rate_i = self.builder.get_object("yaw_rate_i")
+        self.spinbox_list.append(self.yaw_rate_i)
+        self.yaw_rate_d = self.builder.get_object("yaw_rate_d")
+        self.spinbox_list.append(self.yaw_rate_d)
+
+        for spinbox in self.spinbox_list:
+          self.newAdjustment(spinbox, Gtk.Adjustment())
+
+
 
     def on_sendbutton_clicked(self, widget):
         res = 1
-        message = self.gatherData()
+        message = self.gatherData(self.spinbox_list)
         response = ""
         print "Sending message: ", message
         try:
           self.ser.write(message)
         except AttributeError:
           print "No serial connection"
+          self.serial_label.set_text("No serial connection")
+          #self.textbuffer.set_text("No serial connection!")
           return
         self.ser.write("\n")
         while True:
@@ -90,6 +132,7 @@ class ArduinoguiWindow(Window):
         print "Connected to serial port"
       except serial.serialutil.SerialException:
         print "Unable to create serial connection"
+        self.serial_label.set_text("Unable to create serial connection")
       
 
 
