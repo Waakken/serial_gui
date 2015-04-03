@@ -10,6 +10,7 @@ import logging
 logger = logging.getLogger('arduinogui')
 
 import serial
+import struct
 
 from arduinogui_lib import Window
 from arduinogui.AboutArduinoguiDialog import AboutArduinoguiDialog
@@ -18,21 +19,14 @@ from arduinogui.PreferencesArduinoguiDialog import PreferencesArduinoguiDialog
 # See arduinogui_lib.Window.py for more details about how this class works
 class ArduinoguiWindow(Window):
     __gtype_name__ = "ArduinoguiWindow"
-    try:
-      ser = serial.Serial("/dev/ttyACM0", 9600, timeout = 1)
-    except serial.serialutil.SerialException:
-      print "Unable to create serial connection"
     
     def gatherData(self, spinbox_list):
-      message = ""
+      float_array = []
       for spinbox in spinbox_list:
-        message += str(spinbox.get_adjustment().get_value()) + " "
-      return message
+        float_array.append(spinbox.get_adjustment().get_value())
+      buf = struct.pack("%sf" % (len(float_array)), *float_array)
+      return buf
 
-    def newAdjustment(self, spinbox, adj):
-       adj.configure(0.00, 0, 3, 0.01, 0.01, 0.01)
-       spinbox.set_adjustment(adj)
-      
 
     def finish_initializing(self, builder): # pylint: disable=E1002
         """Set up the main window"""
@@ -93,25 +87,42 @@ class ArduinoguiWindow(Window):
         self.spinbox_list.append(self.yaw_rate_i)
         self.yaw_rate_d = self.builder.get_object("yaw_rate_d")
         self.spinbox_list.append(self.yaw_rate_d)
-
+        
+        default_value = 0.1
         for spinbox in self.spinbox_list:
-          self.newAdjustment(spinbox, Gtk.Adjustment())
-
-
+          adj = Gtk.Adjustment()
+          adj.configure(0.00, 0, 3, 0.01, 0.01, 0.01)
+          spinbox.set_adjustment(adj)
+          adj.set_value(default_value)
+          default_value += 0.1
+      
+        try:
+          self.ser = serial.Serial("/dev/ttyACM0", 9600, timeout = 0.1)
+          self.serial_label.set_text("Connected to serial device")
+        except serial.serialutil.SerialException:
+          print "Unable to create serial connection"
+          self.serial_label.set_text("Unable to create serial connection")
+        except OSError:
+          print "Unable to create serial connection"
+          self.serial_label.set_text("Unable to create serial connection")
+    
 
     def on_sendbutton_clicked(self, widget):
         res = 1
         message = self.gatherData(self.spinbox_list)
         response = ""
-        print "Sending message: ", message
+        #Send message:
         try:
+          self.ser.write("\x0d")
+          self.ser.write("\x0d")
+          self.ser.write("\x0d")
           self.ser.write(message)
         except AttributeError:
           print "No serial connection"
           self.serial_label.set_text("No serial connection")
-          #self.textbuffer.set_text("No serial connection!")
           return
-        self.ser.write("\n")
+        self.ser.write("\x0d")
+        #Receive response:
         while True:
           res = self.ser.read()
           if not res:
@@ -128,12 +139,13 @@ class ArduinoguiWindow(Window):
       except AttributeError:
         pass
       try:
-        self.ser = serial.Serial(new_file, 9600, timeout = 1)
+        self.ser = serial.Serial(new_file, 9600, timeout = 0.1)
         print "Connected to serial port"
+        self.serial_label.set_text("Connected to serial device")
       except serial.serialutil.SerialException:
         print "Unable to create serial connection"
         self.serial_label.set_text("Unable to create serial connection")
-      
-
-
+      except OSError:
+        print "Unable to create serial connection"
+        self.serial_label.set_text("Unable to create serial connection")
 

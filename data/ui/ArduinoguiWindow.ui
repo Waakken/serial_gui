@@ -859,7 +859,7 @@
         </child>
         <child>
           <object class="GtkButton" id="sendbutton">
-            <property name="label" translatable="yes">           Send            </property>
+            <property name="label" translatable="yes">           Send          </property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
@@ -875,17 +875,25 @@
           </packing>
         </child>
         <child>
-          <object class="GtkTextView" id="response_textview">
+          <object class="GtkScrolledWindow" id="scrolledwindow3">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
-            <property name="tooltip_text" translatable="yes">Return messages from arduino are printed here</property>
-            <property name="margin_left">5</property>
-            <property name="pixels_above_lines">10</property>
-            <property name="pixels_below_lines">10</property>
-            <property name="editable">False</property>
-            <property name="left_margin">5</property>
-            <property name="right_margin">5</property>
-            <property name="buffer">textbuffer</property>
+            <property name="shadow_type">in</property>
+            <property name="min_content_height">100</property>
+            <child>
+              <object class="GtkTextView" id="response_textview">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="tooltip_text" translatable="yes">Return messages from arduino are printed here</property>
+                <property name="margin_left">5</property>
+                <property name="pixels_above_lines">10</property>
+                <property name="pixels_below_lines">10</property>
+                <property name="editable">False</property>
+                <property name="left_margin">5</property>
+                <property name="right_margin">5</property>
+                <property name="buffer">textbuffer</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="expand">True</property>
@@ -899,7 +907,6 @@
             <property name="can_focus">False</property>
             <property name="margin_left">10</property>
             <property name="margin_top">10</property>
-            <property name="margin_bottom">5</property>
             <property name="xalign">0</property>
             <property name="label" translatable="yes">Arduino file in system:</property>
           </object>
@@ -924,19 +931,41 @@
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="serial_label">
+          <object class="GtkBox" id="status_box">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">10</property>
             <property name="margin_right">10</property>
-            <property name="margin_top">10</property>
             <property name="margin_bottom">10</property>
-            <property name="xalign">0</property>
+            <child>
+              <object class="GtkLabel" id="label1">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Status: </property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="serial_label">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="xalign">0</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">5</property>
+            <property name="position">6</property>
           </packing>
         </child>
       </object>
