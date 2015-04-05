@@ -11,6 +11,7 @@ logger = logging.getLogger('arduinogui')
 
 import serial
 import struct
+import datetime
 
 from arduinogui_lib import Window
 from arduinogui.AboutArduinoguiDialog import AboutArduinoguiDialog
@@ -27,6 +28,64 @@ class ArduinoguiWindow(Window):
       buf = struct.pack("%sf" % (len(float_array)), *float_array)
       return buf
 
+    def unpackBinary(self, data):
+      float_str = "\n"
+      i = 0
+      floats = struct.unpack("18f", data)
+      for flo in floats:
+        float_str += (str(round(flo, 2)) + "  ")
+        i += 1
+        if not (i % 4):
+          float_str += "\n"
+      return float_str
+
+    def serialWrite(self, msg):
+        try:
+          self.ser.write(msg)
+        except AttributeError:
+          print "Unable to create serial connection"
+          self.serial_label.set_text("Unable to create serial connection")
+          return
+
+    def serialRead(self, binary = False):
+        response = ""
+        byte_count = 0
+        while True:
+          res = self.ser.read(1)
+          if res:
+            response += res
+            byte_count += 1
+          else:
+            break
+        self.bytes_label.set_text(str(byte_count))
+        if not binary:
+          self.textbuffer.set_text(response)
+        else:
+          self.textbuffer.set_text("Data is in binary form")
+        self.time_label.set_text(str(datetime.datetime.now().strftime("%H:%M:%S")))
+        return response
+
+
+    def connectSerial(self):
+      new_file = self.arduino_entry.get_text()
+      print "Trying serial connect to: ", new_file
+      try:
+        self.ser.close()
+      except AttributeError:
+        pass
+      try:
+        self.ser = serial.Serial(new_file, int(self.baud_entry.get_text()), timeout = 0.1)
+        print "Connected to serial device"
+        self.serial_label.set_text("Connected to serial device")
+      except serial.serialutil.SerialException:
+        print "Unable to create serial connection."
+        self.serial_label.set_text("Unable to create serial connection")
+      except OSError:
+        print "Unenable to connect to a serial device"
+        self.serial_label.set_text("Unenable to connect to a serial device")
+      except ValueError:
+        print "Error with connection caused propably by a bad baud rate"
+        self.serial_label.set_text("Error with connection caused propably by a bad baud rate")
 
     def finish_initializing(self, builder): # pylint: disable=E1002
         """Set up the main window"""
@@ -39,11 +98,17 @@ class ArduinoguiWindow(Window):
 
         # Code for other initialization actions should be added here.
         self.sendbutton = self.builder.get_object("sendbutton")
+        self.test_button = self.builder.get_object("test_button")
+        self.request_pid_button = self.builder.get_object("request_pid_button")
+
         self.textbuffer = self.builder.get_object("textbuffer")
+
         self.arduino_entry = self.builder.get_object("arduino_entry")
+        self.baud_entry = self.builder.get_object("baud_entry")
+
         self.serial_label = self.builder.get_object("serial_label");
-
-
+        self.bytes_label = self.builder.get_object("bytes_label");
+        self.time_label = self.builder.get_object("time_label");
 
 
         self.roll_angle_p = self.builder.get_object("roll_angle_p")
@@ -88,6 +153,7 @@ class ArduinoguiWindow(Window):
         self.yaw_rate_d = self.builder.get_object("yaw_rate_d")
         self.spinbox_list.append(self.yaw_rate_d)
         
+        # Add adjustment to each spinbox and give them incrementing default values
         default_value = 0.1
         for spinbox in self.spinbox_list:
           adj = Gtk.Adjustment()
@@ -96,56 +162,42 @@ class ArduinoguiWindow(Window):
           adj.set_value(default_value)
           default_value += 0.1
       
-        try:
-          self.ser = serial.Serial("/dev/ttyACM0", 9600, timeout = 0.1)
-          self.serial_label.set_text("Connected to serial device")
-        except serial.serialutil.SerialException:
-          print "Unable to create serial connection"
-          self.serial_label.set_text("Unable to create serial connection")
-        except OSError:
-          print "Unable to create serial connection"
-          self.serial_label.set_text("Unable to create serial connection")
-    
+        self.connectSerial()    
 
     def on_sendbutton_clicked(self, widget):
         res = 1
+        #Create message that contains 18 4-byte float values
         message = self.gatherData(self.spinbox_list)
         response = ""
+        #Tell MCU that we're going to send PIDs:
+        self.serialWrite("n")
         #Send message:
-        try:
-          self.ser.write("\x0d")
-          self.ser.write("\x0d")
-          self.ser.write("\x0d")
-          self.ser.write(message)
-        except AttributeError:
-          print "No serial connection"
-          self.serial_label.set_text("No serial connection")
-          return
-        self.ser.write("\x0d")
+        self.serialWrite(message)
         #Receive response:
-        while True:
-          res = self.ser.read()
-          if not res:
-            break
-          response += res
-        print response
-        self.textbuffer.set_text(response)
+        self.serialRead()
 
+    def on_test_button_clicked(self, widget):
+        res = 1
+        response = ""
+        #Send test request:
+        self.serialWrite("t")
+        #Receive response:
+        self.serialRead()
+
+    def on_request_pid_button_clicked(self, widget):
+        res = 1
+        response = ""
+        #Send test request:
+        self.serialWrite("a")
+        #Receive response:
+        response = self.serialRead(binary = True)
+        floats = self.unpackBinary(response)
+        floats = "Unpacked and formatted binary data: " + str(floats)
+        self.textbuffer.set_text(floats)
+
+    def on_baud_entry_activate(self, widget):
+      self.connectSerial()
+        
     def on_arduino_entry_activate(self, widget):
-      new_file = widget.get_text()
-      print "Trying serial connect to: ", new_file
-      try:
-        self.ser.close()
-      except AttributeError:
-        pass
-      try:
-        self.ser = serial.Serial(new_file, 9600, timeout = 0.1)
-        print "Connected to serial port"
-        self.serial_label.set_text("Connected to serial device")
-      except serial.serialutil.SerialException:
-        print "Unable to create serial connection"
-        self.serial_label.set_text("Unable to create serial connection")
-      except OSError:
-        print "Unable to create serial connection"
-        self.serial_label.set_text("Unable to create serial connection")
+      self.connectSerial()
 
