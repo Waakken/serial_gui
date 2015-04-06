@@ -89,7 +89,7 @@ class ArduinoguiWindow(Window):
       except AttributeError:
         pass
       try:
-        self.ser = serial.Serial(new_file, int(self.baud_entry.get_text()), timeout = 0.1)
+        self.ser = serial.Serial(new_file, int(self.baud_entry.get_text()), timeout = 2)
         print "Connected to serial device"
         self.serial_label.set_text("Connected to serial device")
       except serial.serialutil.SerialException:

@@ -957,7 +957,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkBox" id="button_box1">
+          <object class="GtkBox" id="button_box2">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
@@ -1131,7 +1131,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkBox" id="box13">
+          <object class="GtkBox" id="serial_conf_box">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="orientation">vertical</property>
