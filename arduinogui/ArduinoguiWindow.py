@@ -28,12 +28,27 @@ class ArduinoguiWindow(Window):
       buf = struct.pack("%sf" % (len(float_array)), *float_array)
       return buf
 
-    def unpackBinary(self, data):
+    def unpackBinaryPid(self, data):
       float_str = "\n"
       i = 0
-      floats = struct.unpack("18f", data)
+      packet_size = len(data)/4
+      print "Unpacking %d floats" % (packet_size)
+      floats = struct.unpack("%sf" % (packet_size), data)
       for flo in floats:
         float_str += (str(round(flo, 2)) + "  ")
+        i += 1
+        if not (i % 4):
+          float_str += "\n"
+      return float_str
+
+    def unpackBinarySensor(self, data):
+      float_str = "\n"
+      i = 0
+      #packet_size = len(data)/4
+      #print "Unpacking %d floats" % (packet_size)
+      floats = struct.unpack("fffhhh", data)
+      for flo in floats:
+        float_str += (str(flo) + "  ")
         i += 1
         if not (i % 4):
           float_str += "\n"
@@ -43,9 +58,10 @@ class ArduinoguiWindow(Window):
         try:
           self.ser.write(msg)
         except AttributeError:
-          print "Unable to create serial connection"
-          self.serial_label.set_text("Unable to create serial connection")
-          return
+          print "No serial connetion"
+          self.serial_label.set_text("No serial connection")
+          return -1
+        return 0
 
     def serialRead(self, binary = False):
         response = ""
@@ -100,6 +116,8 @@ class ArduinoguiWindow(Window):
         self.sendbutton = self.builder.get_object("sendbutton")
         self.test_button = self.builder.get_object("test_button")
         self.request_pid_button = self.builder.get_object("request_pid_button")
+        self.request_sensor_button = self.builder.get_object("request_sensor_button")
+        self.reset_button = self.builder.get_object("reset_button")
 
         self.textbuffer = self.builder.get_object("textbuffer")
 
@@ -154,13 +172,13 @@ class ArduinoguiWindow(Window):
         self.spinbox_list.append(self.yaw_rate_d)
         
         # Add adjustment to each spinbox and give them incrementing default values
-        default_value = 0.1
+        #default_value = 0.1
         for spinbox in self.spinbox_list:
           adj = Gtk.Adjustment()
           adj.configure(0.00, 0, 3, 0.01, 0.01, 0.01)
           spinbox.set_adjustment(adj)
-          adj.set_value(default_value)
-          default_value += 0.1
+          #adj.set_value(default_value)
+          #default_value += 0.1
       
         self.connectSerial()    
 
@@ -170,7 +188,8 @@ class ArduinoguiWindow(Window):
         message = self.gatherData(self.spinbox_list)
         response = ""
         #Tell MCU that we're going to send PIDs:
-        self.serialWrite("n")
+        if(self.serialWrite("n") == -1):
+          return
         #Send message:
         self.serialWrite(message)
         #Receive response:
@@ -180,7 +199,17 @@ class ArduinoguiWindow(Window):
         res = 1
         response = ""
         #Send test request:
-        self.serialWrite("t")
+        if(self.serialWrite("t") == -1):
+          return
+        #Receive response:
+        self.serialRead()
+
+    def on_reset_button_clicked(self, widget):
+        res = 1
+        response = ""
+        #Send test request:
+        if(self.serialWrite("r") == -1):
+          return
         #Receive response:
         self.serialRead()
 
@@ -188,10 +217,23 @@ class ArduinoguiWindow(Window):
         res = 1
         response = ""
         #Send test request:
-        self.serialWrite("a")
+        if(self.serialWrite("a") == -1):
+          return
         #Receive response:
         response = self.serialRead(binary = True)
-        floats = self.unpackBinary(response)
+        floats = self.unpackBinaryPid(response)
+        floats = "Unpacked and formatted binary data: " + str(floats)
+        self.textbuffer.set_text(floats)
+
+    def on_request_sensor_button_clicked(self, widget):
+        res = 1
+        response = ""
+        #Send test request:
+        if(self.serialWrite("s") == -1):
+          return
+        #Receive response:
+        response = self.serialRead(binary = True)
+        floats = self.unpackBinarySensor(response)
         floats = "Unpacked and formatted binary data: " + str(floats)
         self.textbuffer.set_text(floats)
 
