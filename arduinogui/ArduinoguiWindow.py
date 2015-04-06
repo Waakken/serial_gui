@@ -32,7 +32,7 @@ class ArduinoguiWindow(Window):
       float_str = "\n"
       i = 0
       packet_size = len(data)/4
-      print "Unpacking %d floats" % (packet_size)
+      print "Received data is %d bytes long. Unpacking %d floats" % (len(data), packet_size)
       floats = struct.unpack("%sf" % (packet_size), data)
       for flo in floats:
         float_str += (str(round(flo, 2)) + "  ")
@@ -44,8 +44,7 @@ class ArduinoguiWindow(Window):
     def unpackBinarySensor(self, data):
       float_str = "\n"
       i = 0
-      #packet_size = len(data)/4
-      #print "Unpacking %d floats" % (packet_size)
+      print "Received data is %d bytes long" % (len(data))
       floats = struct.unpack("fffhhh", data)
       for flo in floats:
         float_str += (str(flo) + "  ")
@@ -118,6 +117,7 @@ class ArduinoguiWindow(Window):
         self.request_pid_button = self.builder.get_object("request_pid_button")
         self.request_sensor_button = self.builder.get_object("request_sensor_button")
         self.reset_button = self.builder.get_object("reset_button")
+        self.read_button = self.builder.get_object("reset_button")
 
         self.textbuffer = self.builder.get_object("textbuffer")
 
@@ -212,6 +212,16 @@ class ArduinoguiWindow(Window):
           return
         #Receive response:
         self.serialRead()
+
+    def on_read_button_clicked(self, widget):
+        res = 1
+        response = ""
+        #Read buffer
+        try:
+          self.serialRead()
+        except AttributeError:
+          print "No serial connetion"
+          self.serial_label.set_text("No serial connection")
 
     def on_request_pid_button_clicked(self, widget):
         res = 1

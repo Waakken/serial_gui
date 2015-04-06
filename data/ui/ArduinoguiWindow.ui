@@ -979,11 +979,12 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="request_pid_button1">
-                <property name="label" translatable="yes">-</property>
+              <object class="GtkButton" id="read_button">
+                <property name="label" translatable="yes">Read serial buffer</property>
+                <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="tooltip_text" translatable="yes">Request PID values from MCU</property>
+                <property name="tooltip_text" translatable="yes">Reads all the available data from serial buffer, in order to empty it</property>
                 <property name="halign">center</property>
                 <property name="margin_left">5</property>
                 <property name="margin_right">5</property>
