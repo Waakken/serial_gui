@@ -325,6 +325,11 @@ class ArduinoguiWindow(Window):
       fd.write("\n")
       self.read_report = ""
 
+    def on_clear_button_clicked(self, widget):
+      try:
+        os.unlink("index.html")
+      except OSError:
+        pass
 
     def on_host_button_clicked(self, widget):
       print "Hosting this online"
