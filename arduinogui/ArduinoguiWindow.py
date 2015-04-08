@@ -16,14 +16,27 @@ import os
 import SimpleHTTPServer
 import SocketServer
 import socket
+import threading
 
 from arduinogui_lib import Window
 from arduinogui.AboutArduinoguiDialog import AboutArduinoguiDialog
 from arduinogui.PreferencesArduinoguiDialog import PreferencesArduinoguiDialog
 
+#GObject.threads_init()
+
 # See arduinogui_lib.Window.py for more details about how this class works
 class ArduinoguiWindow(Window):
     __gtype_name__ = "ArduinoguiWindow"
+
+    def hostingThread(self):
+      PORT = 8080
+      IP = self.getOwnAddr()
+      print "Serving at IP: %s port: %d" % (IP, PORT)
+      self.ip_label.set_text("%s:%d" % (IP, PORT))
+      self.server_status_label.set_text("Online")
+      Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+      httpd = SocketServer.TCPServer((IP, PORT), Handler)
+      httpd.serve_forever()
 
     def getOwnAddr(self):
       #Connect to google server
@@ -51,10 +64,13 @@ class ArduinoguiWindow(Window):
       return buf
 
     def printBinaryDebug(self, data):
+      print "Start of debug print"
       debug_data = struct.unpack("%sB" % (len(data)), data)
       debug_data = "%d debug bytes: %s: " % (len(data), str(debug_data))
       #self.textbuffer.set_text(debug_data)
       print debug_data
+      print data
+      print "End of debug print"
 
     def unpackBinaryPid(self, data):
       float_str = "\n"
@@ -83,7 +99,10 @@ class ArduinoguiWindow(Window):
         print "Unpack failed"
         return
       for flo in floats:
-        float_str += (str(flo) + "  ")
+        if i < 3:
+          float_str += (str(round(flo, 1)) + "  ")
+        else:
+          float_str += (str(flo) + "  ")
         i += 1
         if not (i % 6):
           float_str += "\n"
@@ -169,6 +188,8 @@ class ArduinoguiWindow(Window):
         self.serial_label = self.builder.get_object("serial_label");
         self.bytes_label = self.builder.get_object("bytes_label");
         self.time_label = self.builder.get_object("time_label");
+        self.ip_label = self.builder.get_object("ip_label");
+        self.server_status_label = self.builder.get_object("server_status_label");
 
 
         self.roll_angle_p = self.builder.get_object("roll_angle_p")
@@ -332,10 +353,5 @@ class ArduinoguiWindow(Window):
         pass
 
     def on_host_button_clicked(self, widget):
-      print "Hosting this online"
-      PORT = 8080
-      IP = self.getOwnAddr()
-      Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-      httpd = SocketServer.TCPServer((IP, PORT), Handler)
-      print "Serving at IP: %s port: %d" % (IP, PORT)
-      httpd.serve_forever()
+      threading.Thread(target = self.hostingThread).start()
+
