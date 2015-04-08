@@ -31,11 +31,17 @@ class ArduinoguiWindow(Window):
     def hostingThread(self):
       PORT = 8080
       IP = self.getOwnAddr()
+      Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+      while True:
+        try:
+          httpd = SocketServer.TCPServer((IP, PORT), Handler)
+          break
+        except:
+          PORT += 1
+      self.server_inst = httpd
       print "Serving at IP: %s port: %d" % (IP, PORT)
       self.ip_label.set_text("%s:%d" % (IP, PORT))
       self.server_status_label.set_text("Online")
-      Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-      httpd = SocketServer.TCPServer((IP, PORT), Handler)
       httpd.serve_forever()
 
     def getOwnAddr(self):
@@ -353,5 +359,18 @@ class ArduinoguiWindow(Window):
         pass
 
     def on_host_button_clicked(self, widget):
-      threading.Thread(target = self.hostingThread).start()
+      self.server_thread = threading.Thread(target = self.hostingThread)
+      self.server_thread.start()
 
+    def on_stop_host_button_clicked(self, widget):
+      threads = threading.activeCount()
+      if threads == 1:
+        print "Couldn't find other threads"
+        return
+      self.server_inst.shutdown()
+      print "Waiting for thread to exit"
+      self.server_thread.join()
+      if threading.activeCount() == 1:
+        print "Shutdown ok"
+        self.server_status_label.set_text("Offline")
+        self.ip_label.set_text("---")
