@@ -12,6 +12,10 @@ logger = logging.getLogger('arduinogui')
 import serial
 import struct
 import datetime
+import os
+import SimpleHTTPServer
+import SocketServer
+import socket
 
 from arduinogui_lib import Window
 from arduinogui.AboutArduinoguiDialog import AboutArduinoguiDialog
@@ -20,7 +24,25 @@ from arduinogui.PreferencesArduinoguiDialog import PreferencesArduinoguiDialog
 # See arduinogui_lib.Window.py for more details about how this class works
 class ArduinoguiWindow(Window):
     __gtype_name__ = "ArduinoguiWindow"
+
+    def getOwnAddr(self):
+      #Connect to google server
+      try:
+        #IPv4 server:
+        ownAddr = socket.create_connection(('8.8.8.8', 53), 5)
     
+        #Uncomment this for creating IPv6 server:
+        #ownAddr = socket.create_connection(('2001:4860:4860::8888', 53), 5)
+    
+        #Retrieve own IP
+        my_IP = ownAddr.getsockname()[0]
+        ownAddr.close()
+        print "Retrieved own IP: ", my_IP
+      except socket.timeout:
+           print "No connection, creating localserver"
+           my_IP = 'localhost'
+      return my_IP
+           
     def gatherData(self, spinbox_list):
       float_array = []
       for spinbox in spinbox_list:
@@ -28,28 +50,42 @@ class ArduinoguiWindow(Window):
       buf = struct.pack("%sf" % (len(float_array)), *float_array)
       return buf
 
+    def printBinaryDebug(self, data):
+      debug_data = struct.unpack("%sB" % (len(data)), data)
+      debug_data = "%d debug bytes: %s: " % (len(data), str(debug_data))
+      #self.textbuffer.set_text(debug_data)
+      print debug_data
+
     def unpackBinaryPid(self, data):
       float_str = "\n"
       i = 0
       packet_size = len(data)/4
-      print "Received data is %d bytes long. Unpacking %d floats" % (len(data), packet_size)
-      floats = struct.unpack("%sf" % (packet_size), data)
+      print "Received packet is %d bytes long. Unpacking %d floats" % (len(data), packet_size)
+      try:
+        floats = struct.unpack("%sf" % (packet_size), data)
+      except struct.error:
+        print "Unpack failed"
+        return
       for flo in floats:
         float_str += (str(round(flo, 2)) + "  ")
         i += 1
-        if not (i % 4):
+        if not (i % 6):
           float_str += "\n"
       return float_str
 
     def unpackBinarySensor(self, data):
       float_str = "\n"
       i = 0
-      print "Received data is %d bytes long" % (len(data))
-      floats = struct.unpack("fffhhh", data)
+      print "Received packet is %d bytes long" % (len(data))
+      try:
+        floats = struct.unpack("fffhhh", data)
+      except struct.error:
+        print "Unpack failed"
+        return
       for flo in floats:
         float_str += (str(flo) + "  ")
         i += 1
-        if not (i % 4):
+        if not (i % 6):
           float_str += "\n"
       return float_str
 
@@ -62,7 +98,7 @@ class ArduinoguiWindow(Window):
           return -1
         return 0
 
-    def serialRead(self, binary = False):
+    def serialRead(self, binary = False, packetSize = 1024):
         response = ""
         byte_count = 0
         while True:
@@ -72,12 +108,16 @@ class ArduinoguiWindow(Window):
             byte_count += 1
           else:
             break
+          if byte_count == packetSize:
+            break
         self.bytes_label.set_text(str(byte_count))
+        self.printBinaryDebug(response)
         if not binary:
           self.textbuffer.set_text(response)
         else:
           self.textbuffer.set_text("Data is in binary form")
         self.time_label.set_text(str(datetime.datetime.now().strftime("%H:%M:%S")))
+        self.read_report += (response + " ")
         return response
 
 
@@ -89,7 +129,7 @@ class ArduinoguiWindow(Window):
       except AttributeError:
         pass
       try:
-        self.ser = serial.Serial(new_file, int(self.baud_entry.get_text()), timeout = 2)
+        self.ser = serial.Serial(new_file, int(self.baud_entry.get_text()), timeout = 3)
         print "Connected to serial device"
         self.serial_label.set_text("Connected to serial device")
       except serial.serialutil.SerialException:
@@ -118,11 +158,13 @@ class ArduinoguiWindow(Window):
         self.request_sensor_button = self.builder.get_object("request_sensor_button")
         self.reset_button = self.builder.get_object("reset_button")
         self.read_button = self.builder.get_object("reset_button")
+        self.host_button = self.builder.get_object("host_button")
 
         self.textbuffer = self.builder.get_object("textbuffer")
 
         self.arduino_entry = self.builder.get_object("arduino_entry")
         self.baud_entry = self.builder.get_object("baud_entry")
+        self.filename_entry = self.builder.get_object("filename_entry")
 
         self.serial_label = self.builder.get_object("serial_label");
         self.bytes_label = self.builder.get_object("bytes_label");
@@ -182,6 +224,8 @@ class ArduinoguiWindow(Window):
       
         self.connectSerial()    
 
+        self.read_report = ""
+
     def on_sendbutton_clicked(self, widget):
         res = 1
         #Create message that contains 18 4-byte float values
@@ -193,8 +237,9 @@ class ArduinoguiWindow(Window):
         #Send message:
         self.serialWrite(message)
         #Receive response:
-        self.serialRead()
+        self.serialRead(packetSize = 12)
 
+    #Tests that serial connection is ok. MCU should respond with 7 bytes: "conn ok"
     def on_test_button_clicked(self, widget):
         res = 1
         response = ""
@@ -202,8 +247,19 @@ class ArduinoguiWindow(Window):
         if(self.serialWrite("t") == -1):
           return
         #Receive response:
+        self.serialRead(packetSize = 7)
+
+    #Enable debugging prints. Unable to retrieve PID values and Sensor values in this mode
+    def on_enable_prints_button_clicked(self, widget):
+        res = 1
+        response = ""
+        #Send test request:
+        if(self.serialWrite("e") == -1):
+          return
+        #Receive response:
         self.serialRead()
 
+    #Orders MCU to reset
     def on_reset_button_clicked(self, widget):
         res = 1
         response = ""
@@ -211,8 +267,9 @@ class ArduinoguiWindow(Window):
         if(self.serialWrite("r") == -1):
           return
         #Receive response:
-        self.serialRead()
+        self.serialRead(packetSize = 8)
 
+    #Read serial buffer until timeout
     def on_read_button_clicked(self, widget):
         res = 1
         response = ""
@@ -223,6 +280,7 @@ class ArduinoguiWindow(Window):
           print "No serial connetion"
           self.serial_label.set_text("No serial connection")
 
+    #Request 72 byte "PID values" packet from copter
     def on_request_pid_button_clicked(self, widget):
         res = 1
         response = ""
@@ -230,11 +288,13 @@ class ArduinoguiWindow(Window):
         if(self.serialWrite("a") == -1):
           return
         #Receive response:
-        response = self.serialRead(binary = True)
+        response = self.serialRead(binary = True, packetSize = 72)
         floats = self.unpackBinaryPid(response)
-        floats = "Unpacked and formatted binary data: " + str(floats)
-        self.textbuffer.set_text(floats)
+        if floats:
+          floats = "Unpacked and formatted binary data: " + str(floats)
+          self.textbuffer.set_text(floats)
 
+    #Request 18 byte "Sensor values" packet from copter
     def on_request_sensor_button_clicked(self, widget):
         res = 1
         response = ""
@@ -242,7 +302,7 @@ class ArduinoguiWindow(Window):
         if(self.serialWrite("s") == -1):
           return
         #Receive response:
-        response = self.serialRead(binary = True)
+        response = self.serialRead(binary = True, packetSize = 18)
         floats = self.unpackBinarySensor(response)
         floats = "Unpacked and formatted binary data: " + str(floats)
         self.textbuffer.set_text(floats)
@@ -253,3 +313,24 @@ class ArduinoguiWindow(Window):
     def on_arduino_entry_activate(self, widget):
       self.connectSerial()
 
+    def on_report_button_clicked(self, widget):
+      if not self.read_report:
+        print "No new data to report"
+        return
+      print "Saving"
+      fd = open("index.html", "a+")
+      fd.write(str(datetime.datetime.now().strftime("%H:%M:%S")))
+      fd.write("\n")
+      fd.write(self.read_report)
+      fd.write("\n")
+      self.read_report = ""
+
+
+    def on_host_button_clicked(self, widget):
+      print "Hosting this online"
+      PORT = 8080
+      IP = self.getOwnAddr()
+      Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+      httpd = SocketServer.TCPServer((IP, PORT), Handler)
+      print "Serving at IP: %s port: %d" % (IP, PORT)
+      httpd.serve_forever()
