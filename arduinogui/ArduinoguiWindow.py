@@ -139,10 +139,11 @@ class ArduinoguiWindow(Window):
         self.printBinaryDebug(response)
         if not binary:
           self.textbuffer.set_text(response)
+          self.read_report += (response + " ")
         else:
           self.textbuffer.set_text("Data is in binary form")
+          self.read_report += ("Binary data: " + response + " ")
         self.time_label.set_text(str(datetime.datetime.now().strftime("%H:%M:%S")))
-        self.read_report += (response + " ")
         return response
 
 
@@ -355,8 +356,9 @@ class ArduinoguiWindow(Window):
     def on_clear_button_clicked(self, widget):
       try:
         os.unlink("index.html")
+        print "File cleared"
       except OSError:
-        pass
+        print "Nothing to clear"
 
     def on_host_button_clicked(self, widget):
       self.server_thread = threading.Thread(target = self.hostingThread)
